@@ -1,7 +1,7 @@
 import datetime, json, os, pygame, shutil, zipfile
 import math
-import random
 
+from tkinter.filedialog import askdirectory
 from btpygame import pygameimage, pygamebutton, collide, showtext
 
 home_directory = os.path.expanduser('~')
@@ -12,23 +12,19 @@ if os.path.isfile(home_directory + "/.runscompiler/options.json"):
 else:
     f = open(home_directory + "/.runscompiler/options.json", "w")
     f.writelines(["{\n",
-                  '\t"multipath": "your multimc path, ex: C:/MultiMC",\n',
-                  '\t"zippath": "the folder you want the zip to be created, ex: C:/Runs",\n',
-                  '\t"instformat": "instances name format, ex: RSG_*", \n',
-                  '\t"saveformat": "saves name format, ex: Random Speedrun #*"\n',
+                  '\t"multipath": "your multimc path (ex: C:/MultiMC)",\n',
+                  '\t"zippath": "the folder you want the zip to be created (ex: C:/Runs)",\n',
+                  '\t"instformat": "instances name format (ex: RSG_*)", \n',
+                  '\t"saveformat": "saves name format (ex: Random Speedrun #*)"\n',
                   '}'
     ])
     f.close()
     optionschecked = False
 
-instancename = "RSG_3"
-add5runs = True
-
 def locateSave():
     f = open(home_directory + "/.runscompiler/options.json")
     data = json.load(f)
     multipath = data["multipath"]
-    zippath = data["zippath"]
     instformat = data["instformat"]
     saveformat = data["saveformat"]
     f.close()
@@ -67,22 +63,22 @@ def mooveWorldFiles():
     zippath = data["zippath"]
     saveformat = data["saveformat"]
     f.close()
-    for (dirpath, dirnames, filenames) in os.walk(multipath + "/instances/" + instancename + "/.minecraft/saves"):
+    for (dirpath, dirnames, filenames) in os.walk(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/saves"):
         validsaves = []
         for d in dirnames:
             if d.startswith(saveformat.replace("*", "")):
                 validsaves.append(d)
-        savetomoove = validsaves.pop(-1)
         break
     if not (os.path.exists(zippath + "/temp")):
         os.mkdir(zippath + "/temp")
-    shutil.copytree(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/saves/" + savetomoove, zippath + f"/temp/WorldFiles/{savetomoove}")
-    if add5runs:
-        last5runs = []
-        for i in range(5):
-            last5runs.append(validsaves.pop(-1))
-        for run in last5runs:
-            shutil.copytree(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/saves/" + run, zippath + f"/temp/Last5Worlds/{run}")
+    shutil.copytree(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/saves/" + locatedrun["savename"], zippath + f"/temp/WorldFiles/{locatedrun['savename']}")
+    runpb = int(locatedrun["savename"].replace(saveformat.replace("*", ""), ""))
+    last5runs = []
+    for i in range(runpb-5, runpb):
+        if os.path.exists(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/saves/" + saveformat.replace("*", str(i)) + "/"):
+            last5runs.append(saveformat.replace("*", str(i)))
+    for run in last5runs:
+        shutil.copytree(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/saves/" + run, zippath + f"/temp/Last5Worlds/{run}")
 
 def mooveLogs():
     f = open(home_directory + "/.runscompiler/options.json")
@@ -105,6 +101,16 @@ def mooveLogs():
         os.mkdir(zippath + "/temp/Logs")
     for l in todayslogs:
         shutil.copy(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/logs/" + l, zippath + f"/temp/Logs/{l}")
+
+def mooveServerSide():
+    f = open(home_directory + "/.runscompiler/options.json")
+    data = json.load(f)
+    multipath = data["multipath"]
+    zippath = data["zippath"]
+    f.close()
+    if os.path.exists(multipath + "/instances/" + locatedrun['inst'] + "/.minecraft/verification-zips/"):
+        pass
+        #ServerSideRng is down so I'll add it later
 
 def mooveFullMinecraft():
     f = open(home_directory + "/.runscompiler/options.json")
@@ -137,6 +143,7 @@ def zipit():
 pygame.init()
 screen = pygame.display.set_mode((500, 520))
 pygame.display.set_caption('RunsCompiler by DraquoDrass')
+pygame.display.set_icon(pygame.image.load('assets/icon.png'))
 clock = pygame.time.Clock()
 running = True
 stat = 0
@@ -156,21 +163,24 @@ while running:
     btn_find.display(screen)
     btn_options.display(screen)
 
-    if stat > 0:
-        showtext(screen, f"Found a pb with the time of {pbtime}", "assets/McRegular.otf", 20, (250, 95), (255, 255, 255), "center")
-        showtext(screen, f"Is it the good run?", "assets/McRegular.otf", 20, (250, 120), (255, 255, 255), "center")
+    if stat in [1, 2, 3, 4, 404]:
+        showtext(screen, pbtexte, "assets/McRegular.otf", 20, (250, 95), (255, 255, 255), "center")
+    if stat in [1, 2, 3, 4]:
+        showtext(screen, f"Is it the right run?", "assets/McRegular.otf", 20, (250, 120), (255, 255, 255), "center")
         btn_yes.display(screen)
         btn_no.display(screen)
     if stat == 2 or stat == 4:
         showtext(screen, f"Instance: {locatedrun['inst']}", "assets/McRegular.otf", 20, (250, 225), (255, 255, 255), "center")
         showtext(screen, f"Save name: {locatedrun['savename']}", "assets/McRegular.otf", 20, (250, 250), (255, 255, 255), "center")
         btn_compile.display(screen)
-    if stat == 3:
+    if stat in [3, 33, 404]:
         showtext(screen, f"As the save couldn't automatically be found,", "assets/McRegular.otf", 20, (250, 225), (255, 255, 255), "center")
         showtext(screen, f"please locate it manually.", "assets/McRegular.otf", 20, (250, 250), (255, 255, 255), "center")
         btn_locate.display(screen)
     if stat == 4:
         showtext(screen, f"Zip file created !", "assets/McRegular.otf", 20, (250, 355), (255, 255, 255), "center")
+    if stat == 33:
+        showtext(screen, "This world didn't finished the game.", "assets/McRegular.otf", 20, (250, 95), (255, 255, 255), "center")
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -179,19 +189,57 @@ while running:
             if event.button == pygame.BUTTON_LEFT:
                 if collide(btn_find, event.pos):
                     locatedrun = locateSave()
-                    seconds = int((locatedrun["time"] / 1000) % 60)
-                    minutes = int((locatedrun["time"] / (1000 * 60)) % 60)
-                    hours = int((locatedrun["time"] / (1000 * 60 * 60)) % 24)
-                    if hours == 0:
-                        pbtime = f"{minutes}:{seconds}"
-                        stat = 1
+                    if locatedrun["time"] == math.inf:
+                        pbtexte = f"Couldn't find any finished run."
+                        stat = 404
                     else:
-                        pbtime = f"{hours}:{minutes}:{seconds}"
-                        stat = 1
-                elif collide(btn_yes, event.pos):
+                        seconds = int((locatedrun["time"] / 1000) % 60)
+                        minutes = int((locatedrun["time"] / (1000 * 60)) % 60)
+                        hours = int((locatedrun["time"] / (1000 * 60 * 60)) % 24)
+                        if hours == 0:
+                            pbtexte = f"Found a pb with the time of {minutes}:{seconds}"
+                            pbtime = f"{minutes}:{seconds}"
+                            stat = 1
+                        else:
+                            pbtexte = f"Found a pb with the time of {hours}:{minutes}:{seconds}"
+                            pbtime = f"{hours}:{minutes}:{seconds}"
+                            stat = 1
+                elif collide(btn_yes, event.pos) and stat in [1, 3]:
                     stat = 2
-                elif collide(btn_no, event.pos):
+                elif collide(btn_no, event.pos) and stat in [1, 2]:
                     stat = 3
+                elif collide(btn_locate, event.pos) and stat in [3, 33, 404]:
+                    selectedpath = askdirectory()
+                    if selectedpath == "":
+                        stat = 33
+                    else:
+                        splitedpath = selectedpath.split("/", len(selectedpath))
+                        locatedrun = {
+                            "time": math.inf,
+                            "inst": splitedpath[-4],
+                            "savename": splitedpath[-1]
+                        }
+                        f = open(home_directory + "/.runscompiler/options.json")
+                        data = json.load(f)
+                        multipath = data["multipath"]
+                        f.close()
+                        fsigt = open(multipath + "/instances/" + locatedrun["inst"] + "/.minecraft/saves/" + locatedrun["savename"] + "/speedrunigt/record.json")
+                        igtdata = json.load(fsigt)
+                        if igtdata["is_completed"]:
+                            locatedrun["time"] = igtdata["retimed_igt"]
+                            seconds = int((locatedrun["time"] / 1000) % 60)
+                            minutes = int((locatedrun["time"] / (1000 * 60)) % 60)
+                            hours = int((locatedrun["time"] / (1000 * 60 * 60)) % 24)
+                            if hours == 0:
+                                pbtexte = f"Found a pb with the time of {minutes}:{seconds}"
+                                pbtime = f"{minutes}:{seconds}"
+                                stat = 1
+                            else:
+                                pbtexte = f"Found a pb with the time of {hours}:{minutes}:{seconds}"
+                                pbtime = f"{hours}:{minutes}:{seconds}"
+                                stat = 1
+                        else:
+                            stat = 33
                 elif collide(btn_compile, event.pos) and stat == 2:
                     mooveWorldFiles()
                     mooveLogs()
